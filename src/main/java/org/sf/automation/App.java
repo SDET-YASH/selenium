@@ -1,4 +1,4 @@
-package org.example;
+package org.sf.automation;
 
 /**
  * Hello world!

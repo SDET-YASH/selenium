@@ -12,6 +12,9 @@ target/
 *.iws
 *.iml
 *.ipr
+test-output/
+.idea/
+src/test/resources/config.properties
 
 ### Eclipse ###
 .apt_generated
