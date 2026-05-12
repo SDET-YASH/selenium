@@ -1,0 +1,67 @@
+name: Salesforce Regression Suite
+
+on:
+  schedule:
+    - cron: '0 8 * * 1-5'    # Mon–Fri at 8:00 AM UTC
+  workflow_dispatch:           # allows manual trigger from GitHub UI
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Java 11
+        uses: actions/setup-java@v4
+        with:
+          java-version: '11'
+          distribution: 'temurin'
+
+      - name: Set up Chrome
+        uses: browser-actions/setup-chrome@v1
+
+      - name: Create config.properties from secrets
+        run: |
+          mkdir -p src/test/resources
+          echo "sf.url=${{ secrets.SF_URL }}"           >> src/test/resources/config.properties
+          echo "sf.username=${{ secrets.SF_USERNAME }}" >> src/test/resources/config.properties
+          echo "sf.password=${{ secrets.SF_PASSWORD }}" >> src/test/resources/config.properties
+          echo "browser=chrome"                         >> src/test/resources/config.properties
+          echo "implicit.wait=10"                       >> src/test/resources/config.properties
+          echo "explicit.wait=20"                       >> src/test/resources/config.properties
+
+      - name: Run tests
+        run: mvn test -B
+        continue-on-error: true    # ensures email step always runs even if tests fail
+
+      - name: Upload ExtentReport as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: extent-report
+          path: test-output/ExtentReport.html
+
+      - name: Send email report
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com
+          server_port: 465
+          username: ${{ secrets.EMAIL_USERNAME }}
+          password: ${{ secrets.EMAIL_PASSWORD }}
+          subject: "Salesforce Automation — ${{ job.status }} — Run #${{ github.run_number }}"
+          to: ${{ vars.EMAIL_TO }}
+          from: Automation Bot <${{ secrets.EMAIL_USERNAME }}>
+          body: |
+            Salesforce automation run complete.
+
+            Workflow  : ${{ github.workflow }}
+            Run number: ${{ github.run_number }}
+            Triggered : ${{ github.event_name }}
+            Status    : ${{ job.status }}
+
+            The ExtentReport HTML is attached to this email.
+            You can also view it on GitHub:
+            https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          attachments: test-output/ExtentReport.html
